@@ -1,0 +1,46 @@
+name: CI with DeepEval and Trivy
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run DeepEval tests
+        env:
+          DEEPEVAL_API_KEY: ${{ secrets.DEEPEVAL_API_KEY }}
+        run: |
+          pytest tests/test_deepeval.py
+
+      - name: Build Docker image
+        run: docker build -t my-app:latest .
+
+      - name: Install Trivy
+        run: |
+          wget https://github.com/aquasecurity/trivy/releases/download/v0.29.2/trivy_0.29.2_Linux-64bit.tar.gz
+          tar zxvf trivy_0.29.2_Linux-64bit.tar.gz
+          sudo mv trivy /usr/local/bin/trivy
+
+      - name: Run Trivy scan
+        run: trivy image --exit-code 0 --severity HIGH,CRITICAL my-app:latest
+        
+      - name: Run Trivy scan for misconfigurations
+        run: trivy config .

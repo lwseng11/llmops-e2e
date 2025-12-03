@@ -4,3 +4,7 @@ torch
 fastapi
 uvicorn
 pydantic
+deepeval
+python-dotenv
+gunicorn
+pytest
