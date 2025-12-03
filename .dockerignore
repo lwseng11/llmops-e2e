@@ -1,0 +1,26 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Tests
+tests/
+
+# VSCode
+.vscode/
+
+# Docker
+Dockerfile
+
+# GitHub
+.github/
+
+# Other
+.DS_Store
+*.pem
+*.env
