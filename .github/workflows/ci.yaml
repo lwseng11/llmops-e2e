@@ -9,6 +9,9 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     outputs:
       image_name: ${{ steps.build_and_push.outputs.image_name }}
     steps:
@@ -61,11 +64,14 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build-and-test
+    permissions:
+      contents: read
+      packages: write
     env:
       KUBECONFIG: ${{ github.workspace }}/kubeconfig.yaml
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Install kind
         run: |
