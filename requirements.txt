@@ -1,6 +1,8 @@
-transformers
-torch
+transformers[tf]
+tensorflow
 fastapi
 uvicorn
 pydantic
 python-dotenv
+pytest
+deepeval

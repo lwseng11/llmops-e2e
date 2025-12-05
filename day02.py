@@ -9,7 +9,7 @@ import uvicorn
 app = FastAPI()
 
 # Initializing the Question-Answering Pipeline
-qa_pipeline = pipeline("question-answering", model="distilbert-base-uncased-distilled-squad")
+qa_pipeline = pipeline("question-answering", model="distilbert-base-uncased-distilled-squad", framework="tf")
 
 # Defining Data Models
 class ChatRequest(BaseModel): 
