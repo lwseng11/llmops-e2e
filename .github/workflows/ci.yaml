@@ -96,7 +96,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name's: Load Docker image into kind
+      - name: Load Docker image into kind
         run: |
           docker pull ${{ needs.build-and-test.outputs.image_name }}
           kind load docker-image ${{ needs.build-and-test.outputs.image_name }} --name github-ci
