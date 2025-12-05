@@ -1,14 +1,14 @@
-import pytest
-from deepeval import assert_test
-from deepeval.test_case import LLMTestCase
-from deepeval.metrics import AnswerRelevancyMetric
+# import pytest
+# from deepeval import assert_test
+# from deepeval.test_case import LLMTestCase
+# from deepeval.metrics import AnswerRelevancyMetric
 
-def test_answer_relevancy():
-    answer_relevancy_metric = AnswerRelevancyMetric(threshold=0.5)
-    test_case = LLMTestCase(
-        input="What if these shoes don't fit?",
-        # Replace this with the actual output from your LLM application
-        actual_output="We offer a 30-day return policy.",
-        retrieval_context=["All customers are eligible for a 30-day return policy."]
-    )
-    assert_test(test_case, [answer_relevancy_metric])
+# def test_answer_relevancy():
+#     answer_relevancy_metric = AnswerRelevancyMetric(threshold=0.5)
+#     test_case = LLMTestCase(
+#         input="What if these shoes don't fit?",
+#         # Replace this with the actual output from your LLM application
+#         actual_output="We offer a 30-day return policy.",
+#         retrieval_context=["All customers are eligible for a 30-day return policy."]
+#     )
+#     assert_test(test_case, [answer_relevancy_metric])

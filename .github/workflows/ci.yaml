@@ -180,6 +180,14 @@ jobs:
           # Kill port-forward
           kill $PF_PID
 
+      - name: Get pod logs on failure
+        if: failure()
+        run: |
+          echo "--- Pod Logs ---"
+          kubectl logs -l app=gpt-hf-pod --tail=-1
+          echo "--- Pod Description ---"
+          kubectl describe pod -l app=gpt-hf-pod
+
       - name: Delete kind cluster
         if: always()
         run: kind delete cluster --name github-ci
