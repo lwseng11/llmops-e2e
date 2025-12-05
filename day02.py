@@ -9,7 +9,9 @@ import uvicorn
 app = FastAPI()
 
 # Initializing the Question-Answering Pipeline
+print("DEBUG: Starting application initialization...")
 qa_pipeline = pipeline("question-answering", model="distilbert-base-uncased-distilled-squad", framework="tf")
+print("DEBUG: QA Pipeline initialized.")
 
 # Defining Data Models
 class ChatRequest(BaseModel): 
@@ -30,4 +32,6 @@ async def chat(request: ChatRequest):
     
 # running the app server
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    print("DEBUG: Attempting to run Uvicorn server...")
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="debug")
+    print("DEBUG: Uvicorn server stopped.")

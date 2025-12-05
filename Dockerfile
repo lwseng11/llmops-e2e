@@ -3,6 +3,7 @@ FROM python:3.9-slim
 
 # Set the working directory in the container
 WORKDIR /app
+ENV PYTHONUNBUFFERED=1
 
 # Copy only the requirements file to leverage Docker cache
 COPY requirements.txt .
