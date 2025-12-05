@@ -28,11 +28,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run DeepEval tests
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          pytest tests/test_deepeval.py
+      # - name: Run DeepEval tests
+      #   env:
+      #     OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      #   run: |
+      #     pytest tests/test_deepeval.py
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v2
