@@ -16,6 +16,6 @@ spec:
       - name: gptcontainer
         image: darryl1975/fastapi-app:v1amd64
         command: ["uvicorn"]
-        args: ["day02:app", "--host", "0.0.0.0", "--port", "8000"]
+        args: ["day02:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "debug"]
         ports:
         - containerPort: 8000
