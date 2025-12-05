@@ -9,7 +9,8 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
+    outputs:
+      image_name: ${{ steps.build_and_push.outputs.image_name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -30,8 +31,20 @@ jobs:
         run: |
           pytest tests/test_deepeval.py
 
-      - name: Build Docker image
-        run: docker build -t my-app:latest .
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        id: build_and_push
+        run: |
+          IMAGE_NAME=ghcr.io/lwseng11/my-app:${{ github.sha }}
+          docker build -t $IMAGE_NAME .
+          docker push $IMAGE_NAME
+          echo "::set-output name=image_name::$IMAGE_NAME"
 
       - name: Install Trivy
         run: |
@@ -40,7 +53,127 @@ jobs:
           sudo mv trivy /usr/local/bin/trivy
 
       - name: Run Trivy scan
-        run: trivy image --exit-code 0 --severity HIGH,CRITICAL my-app:latest
+        run: trivy image --exit-code 0 --severity HIGH,CRITICAL ${{ steps.build_and_push.outputs.image_name }}
         
       - name: Run Trivy scan for misconfigurations
         run: trivy config .
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    env:
+      KUBECONFIG: ${{ github.workspace }}/kubeconfig.yaml
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install kind
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.25.0/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      - name: Start kind cluster
+        run: kind create cluster --name github-ci
+
+      - name: Export kubeconfig
+        run: kind get kubeconfig --name github-ci > $KUBECONFIG
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: latest
+
+      - name: Wait for node to be ready
+        run: |
+          echo "Waiting for control-plane node to be Ready..."
+          kubectl wait --for=condition=Ready node/github-ci-control-plane --timeout=240s
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name's: Load Docker image into kind
+        run: |
+          docker pull ${{ needs.build-and-test.outputs.image_name }}
+          kind load docker-image ${{ needs.build-and-test.outputs.image_name }} --name github-ci
+          echo "Verifying image is in kind node..."
+          for i in $(seq 1 10); do
+            if docker exec github-ci-control-plane crictl images | grep -q ${{ needs.build-and-test.outputs.image_name }}; then
+              echo "Image is now available in kind node."
+              break
+            else
+              echo "Waiting for image to load..."
+              sleep 2
+            fi
+          done
+
+      - name: Update deployment.yaml with new image
+        run: |
+          sed -i "s|image: .*|image: ${{ needs.build-and-test.outputs.image_name }}|g" deployment.yaml
+          
+      - name: Deploy app
+        run: |
+          kubectl apply -f deployment.yaml
+          kubectl apply -f service.yaml
+
+      - name: Wait for pod to be scheduled
+        run: |
+          echo "Waiting for pod to start..."
+          for i in {1..60}; do
+            POD_STATUS=$(kubectl get pod -l app=gpt-hf-pod -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "Pending")
+            echo "Pod status: $POD_STATUS"
+            if [[ "$POD_STATUS" == "Running" ]]; then
+              break
+            fi
+            sleep 5
+          done
+
+      - name: Wait for pod readiness
+        run: kubectl wait --for=condition=ready pod -l app=gpt-hf-pod --timeout=600s
+
+      - name: Test API inside cluster (port-forward)
+        run: |
+          SERVICE_NAME=gpt-hf-service
+          SERVICE_PORT=8000
+
+          # Forward the service port in background
+          kubectl port-forward svc/$SERVICE_NAME $SERVICE_PORT:$SERVICE_PORT &
+          PF_PID=$!
+          echo "Port-forward PID: $PF_PID"
+
+          # Wait until port is listening
+          for i in {1..10}; do
+            if nc -z localhost $SERVICE_PORT; then
+              echo "Port $SERVICE_PORT is ready"
+              break
+            fi
+            echo "Waiting for port-forward to be ready..."
+            sleep 1
+          done
+
+          # Retry loop
+          for i in $(seq 1 60); do
+            RESPONSE=$(curl -s -w "%{http_code}" -o /tmp/response.json http://localhost:$SERVICE_PORT/chat \
+              -X POST -H "Content-Type: application/json" \
+              -d '{"question":"What does Hugging Face provide?", "context":"Hugging Face is a technology company that provides open-source NLP libraries ..."}')
+
+            if [ "$RESPONSE" = "200" ]; then
+              echo "Service is responsive! Response:"
+              cat /tmp/response.json
+              break
+            else
+              echo "Waiting for /chat endpoint (attempt $i)... HTTP $RESPONSE"
+              sleep 5
+            fi
+          done
+
+          # Kill port-forward
+          kill $PF_PID
+
+      - name: Delete kind cluster
+        if: always()
+        run: kind delete cluster --name github-ci
